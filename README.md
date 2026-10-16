@@ -72,7 +72,7 @@ nitrostack-py dev --port 4000 --widget 4001
 nitrostack-py start --port 4000 --widget 4001
 ```
 
-`init` and `pack` vendor this SDK into `vendor/nitrostack` and pin it with `[tool.uv.sources]`. The dependency name stays `nitrostack` in `pyproject.toml` and `requirements.txt`, so `nitrostack-py install` and NitroCloud still run `uv sync`. Do not put a `file:` URL in `[project].dependencies`; that breaks the cloud wheel metadata. The project runs that vendored copy, whatever the version spec says.
+`init` and `pack` vendor this SDK into `vendor/nitrostack` and pin it with `[tool.uv.sources]`. The dependency name stays `nitrostack` in `pyproject.toml` and `requirements.txt`, so `nitrostack-py install` and NitroCloud still run `uv sync`. Do not put a `file:` URL in `[project].dependencies`; that breaks the cloud wheel metadata. The project runs that vendored copy, whatever the version spec says; `nitrostack-py upgrade` replaces it with another release.
 
 Once scaffolded, follow the next steps the CLI prints.
 
@@ -498,8 +498,8 @@ nitrostack-py pack              # write dist/*.whl
 ### Upgrade, install, validate
 
 ```bash
-nitrostack-py upgrade                 # latest nitrostack on PyPI (writes nitrostack>=latest)
-nitrostack-py upgrade --version 0.4.1 # pin exactly this version (writes nitrostack==0.4.1)
+nitrostack-py upgrade                 # move the project to the latest nitrostack on PyPI
+nitrostack-py upgrade --version 0.4.1 # move it to exactly this version
 nitrostack-py upgrade --dry-run       # print the change; do not edit files
 nitrostack-py upgrade --allow-downgrade --version 0.1.0  # required to pin an older version
 
@@ -518,7 +518,7 @@ nitrostack = { path = "/path/to/nitrostack-python-sdk", editable = true }
 
 then `uv lock` / `uv sync`. Without `uv`, install falls back to `.venv` + `pip`.
 
-`upgrade` updates the `nitrostack` dependency spec in `pyproject.toml` in place (and `requirements.txt` when it already pins nitrostack). `--version X` writes `nitrostack==X`. Without `--version`, the latest PyPI release is written as `nitrostack>=latest`. A target older than the currently declared version is rejected unless `--allow-downgrade` is passed. `validate` reports missing/conflicting dependencies, `@mcp_app` modules that fail to import, and `@module()` `imports`/`exports` that are not real classes.
+`upgrade` in a project with `vendor/nitrostack` (every project `init` creates) replaces the vendored copy with the target release: the wheel is downloaded from PyPI and checked against its published sha256, or copied from the running CLI when it is that release. The dependency stays the plain name `nitrostack`. In other projects, `upgrade` updates the `nitrostack` spec in `pyproject.toml`'s `dependencies` (and `requirements.txt` when it already pins nitrostack): `--version X` writes `nitrostack==X`, and without `--version` the latest release is written as `nitrostack>=latest`. Either way, run `nitrostack-py install` afterwards, and a target older than the current version is rejected unless `--allow-downgrade` is passed. `validate` reports missing/conflicting dependencies, `@mcp_app` modules that fail to import, and `@module()` `imports`/`exports` that are not real classes.
 
 ---
 
