@@ -1409,9 +1409,9 @@ def init_project(name: str = None, template: str = None, skip_install: bool = Fa
     print(" 5. Inspector (HTTP): \033[34mMCP_TRANSPORT_TYPE=http MCP_STATELESS=true NITROSTACK_APP_MODE=universal python main.py\033[0m")
     print("    Connect Streamable HTTP to \033[34mhttp://localhost:3000/mcp\033[0m with \033[34mAuthentication = Off\033[0m")
     print("    Apps tab renders the widget from live \033[34mstructuredContent\033[0m (not widgets/preview.html)")
-    print("    For open shops only set \033[34mopenNow=true\033[0m (list) or \033[34mfilter=open_now\033[0m (map)")
-    print(" 6. NitroStudio cannot folder-connect a Python project (it looks for @nitrostack/core).")
-    print("    Use Inspector HTTP as above, or Studio's custom MCP URL if it offers Streamable HTTP.")
+    if template == "python-pizzaz":
+        print("    For open shops only set \033[34mopenNow=true\033[0m (list) or \033[34mfilter=open_now\033[0m (map)")
+    print(" 6. NitroStudio: open this folder as a project; Studio starts and connects it.")
     print("\nHappy coding! 🚀\n")
 
 def run_dev(port=None, widget=None):
