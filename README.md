@@ -72,7 +72,7 @@ nitrostack-py dev --port 4000 --widget 4001
 nitrostack-py start --port 4000 --widget 4001
 ```
 
-`init` and `pack` vendor this SDK into `vendor/nitrostack` and pin it with `[tool.uv.sources]`. The dependency name stays `nitrostack` in `pyproject.toml` and `requirements.txt`, so `nitrostack-py install` and NitroCloud still run `uv sync`. Do not put a `file:` URL in `[project].dependencies`; that breaks the cloud wheel metadata. Because the SDK is vendored, `nitrostack-py upgrade` (below) is how an existing project picks up a new SDK release.
+`init` and `pack` vendor this SDK into `vendor/nitrostack` and pin it with `[tool.uv.sources]`. The dependency name stays `nitrostack` in `pyproject.toml` and `requirements.txt`, so `nitrostack-py install` and NitroCloud still run `uv sync`. Do not put a `file:` URL in `[project].dependencies`; that breaks the cloud wheel metadata. The project runs that vendored copy, whatever the version spec says.
 
 Once scaffolded, follow the next steps the CLI prints.
 
