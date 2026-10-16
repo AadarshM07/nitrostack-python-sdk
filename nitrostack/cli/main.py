@@ -1795,12 +1795,17 @@ def main():
     # pack command
     pack_parser = subparsers.add_parser(
         "pack",
-        help="Build a deployable wheel of the current project (never includes .env/secrets)",
+        help="Build a deployable wheel of the current project (excludes .env by default)",
     )
     pack_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show files that would be packed without creating the artifact",
+    )
+    pack_parser.add_argument(
+        "--include-env",
+        action="store_true",
+        help="Include .env files in the wheel (use with caution!)",
     )
 
     # upgrade command
@@ -1881,7 +1886,7 @@ def main():
         else:
             generate_component(args.generator, args.name)
     elif args.command == "pack":
-        _run_command(pack_project, dry_run=args.dry_run)
+        _run_command(pack_project, dry_run=args.dry_run, include_env=args.include_env)
     elif args.command == "upgrade":
         _run_command(
             upgrade_project,

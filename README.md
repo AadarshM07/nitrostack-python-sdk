@@ -491,9 +491,10 @@ Attach generated pipeline classes with `@use_guards`, `@use_pipes`, `@use_interc
 ```bash
 nitrostack-py pack --dry-run    # list files; does not write an artifact
 nitrostack-py pack              # write dist/*.whl
+nitrostack-py pack --include-env  # also pack .env files (use with caution!)
 ```
 
-`pack` builds a wheel with setuptools (the same backend as this SDK), refreshes `requirements.txt` from `pyproject.toml` when possible, and always includes `.env.example`. The real `.env` file and other secrets are never packed. Temporary build directories are deleted afterwards.
+`pack` builds a wheel with setuptools (the same backend as this SDK), refreshes `requirements.txt` from `pyproject.toml` when possible, and always includes `.env.example`. `.env`, `.env.local`, and `.env.production` are excluded unless you pass `--include-env`. Temporary build directories are deleted afterwards.
 
 ### Upgrade, install, validate
 
