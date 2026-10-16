@@ -28,6 +28,12 @@ dev = [
     "tox>=4.0.0",
 ]
 
+[project.urls]
+Homepage = "https://nitrostack.ai/"
+Documentation = "https://docs.nitrostack.ai/python"
+Repository = "https://github.com/nitrocloudofficial/nitrostack-python-sdk"
+Issues = "https://github.com/nitrocloudofficial/nitrostack-python-sdk/issues"
+
 [project.scripts]
 nitrostack-py = "nitrostack.cli.main:main"
 
