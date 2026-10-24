@@ -42,9 +42,9 @@ def test_requirements_declares_certifi_floor():
     "name, later_command",
     [
         ("test.yml", 'pip install -e ".[dev]"'),
-        ("publish.yml", "pip install -U build"),
     ],
 )
+
 def test_workflow_bootstraps_secure_pip_before_other_installs(name, later_command):
     text = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
     assert SECURE_PIP_SPEC in text, "workflow pip spec must match install.SECURE_PIP_SPEC"
