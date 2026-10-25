@@ -10,7 +10,9 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Mapping, Optional, Pattern, Set, Tuple, Type
-
+from nitrostack.transforms import (
+    SyntheticTool, ToolArgumentError, TransformContext, validate_tool_arguments,
+)
 import mcp.types as types
 from mcp import MCPError
 from mcp.server.context import ServerRequestContext
@@ -608,16 +610,18 @@ class McpApplication:
         self.task_manager = TaskManager()
         self._in_flight = InFlightRegistry()
 
-        self._bootstrap()
-
-        # Initialize the transform pipeline
-        # Initialize transforms before registering handlers. Handlers use
-        # this pipeline when tools/list is requested.
+        # Pipeline first: handlers consult it lazily when requests arrive.
         self._transforms = TransformPipeline(
             getattr(self.app_class, "_mcp_transforms", None) or []
         )
 
         self._bootstrap()
+
+        # Tools are registered now, so transforms can see the catalog.
+        self._transforms.register(TransformRegistry(self._base_tool_list))
+
+    def _base_tool_list(self) -> List[types.Tool]:
+        return [self._build_tool_definition(entry) for entry in self._tools.values()]
 
     def _bootstrap(self) -> None:
         # 1. Construct the low-level server directly.
@@ -1205,6 +1209,12 @@ class McpApplication:
             getattr(method, "_mcp_pipes", []),
             getattr(method, "_mcp_filters", []),
         )
+    def _base_lookup(self, name: str):
+        return self._tools.get(name)
+
+    async def _invoke_for_transform(self, name: str, arguments: dict, tctx: TransformContext):
+        # Re-enter the normal call path so guards and validation run for the real tool.
+        return await self._call_tool(name, arguments, _tctx=tctx)
 
     def _to_call_tool_result(
         self,
@@ -1273,6 +1283,52 @@ class McpApplication:
             isError=False,
         )
 
+    async def _call_tool(
+        self,
+        name: str,
+        arguments: Dict[str, Any],
+        task: Any = None,
+        _tctx: Optional[TransformContext] = None,
+    ):
+        """Resolve through the transform pipeline, then run the real tool path."""
+        if not self._transforms.enabled:
+            return await self._call_real_tool(name, arguments, task=task)
+
+        tctx = _tctx or TransformContext(_invoker=self._invoke_for_transform)
+        try:
+            resolved = await self._transforms.resolve_tool(name, self._base_lookup, tctx)
+        except Exception as exc:
+            logger.exception("Transform failed resolving tool %s", name)
+            return types.CallToolResult(
+                content=[types.TextContent(type="text", text=str(exc))], isError=True
+            )
+
+        if isinstance(resolved, SyntheticTool):
+            payload = arguments or {}
+            inner = payload.get("input")
+            if (
+                isinstance(inner, dict)
+                and set(payload) <= {"input"}
+                and "input" not in resolved.input_model.model_fields
+            ):
+                payload = inner  # accept the older {"input": {...}} wrap
+            try:
+                validated = validate_tool_arguments(resolved.name, resolved.input_model, payload)
+                result = await resolved.handler(validated, tctx)
+            except ToolArgumentError as exc:
+                return types.CallToolResult(
+                    content=[types.TextContent(type="text", text=f"{exc}: {exc.errors}")],
+                    isError=True,
+                )
+            except Exception as exc:
+                logger.exception("Synthetic tool %s failed", name)
+                return types.CallToolResult(
+                    content=[types.TextContent(type="text", text=str(exc))], isError=True
+                )
+            return self._to_call_tool_result(result)
+
+        return await self._call_real_tool(name, arguments, task=task)
+
     @staticmethod
     def _call_tool_result_meta(result: types.CallToolResult) -> Optional[Dict[str, Any]]:
         """Read caller ``_meta`` from the field or pydantic extra (alias vs extra)."""
@@ -1320,7 +1376,7 @@ class McpApplication:
         )
         return content
 
-    async def _call_tool(self, name: str, arguments: Dict[str, Any], task: Any = None):
+    async def _call_real_tool(self, name: str, arguments: Dict[str, Any], task: Any = None):
         entry = self._tools.get(name)
         if entry is None:
             return types.CallToolResult(
