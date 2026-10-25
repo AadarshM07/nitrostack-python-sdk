@@ -44,29 +44,29 @@ def _app_module():
     return M
 
 
-async def _read_status():
-    harness = await NitroTestingModule.create(_app_module())
-    raw = await harness.read_resource("health://status")
-    return json.loads(raw) if isinstance(raw, str) else raw
+def _read_status():
+    async def run():
+        harness = await NitroTestingModule.create(_app_module())
+        raw = await harness.read_resource("health://status")
+        return json.loads(raw) if isinstance(raw, str) else raw
+
+    return asyncio.run(run())
 
 
-@pytest.mark.asyncio
-async def test_async_and_sync_checks_both_report_healthy():
-    status = await _read_status()
+def test_async_and_sync_checks_both_report_healthy():
+    status = _read_status()
     assert "event loop" not in str(status["async_ok"])
     assert status["async_ok"] == status["sync_ok"]
 
 
-@pytest.mark.asyncio
-async def test_raising_check_reports_error_without_affecting_others():
-    status = await _read_status()
+def test_raising_check_reports_error_without_affecting_others():
+    status = _read_status()
     assert "db down" in status["async_boom"]
     assert "error" not in str(status["async_ok"])
     assert "error" not in str(status["sync_ok"])
 
 
-@pytest.mark.asyncio
-async def test_no_never_awaited_warning():
+def test_no_never_awaited_warning():
     with warnings.catch_warnings():
         warnings.simplefilter("error", RuntimeWarning)
-        await _read_status()
+        _read_status()
