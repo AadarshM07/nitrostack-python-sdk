@@ -1,4 +1,6 @@
+
 """Turns tool definitions into search results at three detail levels."""
+
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable, List, Tuple
@@ -8,9 +10,16 @@ from nitrostack.transforms.search.models import DetailLevel
 ALWAYS_VISIBLE_META_KEYS = ("alwaysVisible", "nitrostack/alwaysVisible")
 
 
+def _schema(tool: Any) -> Dict[str, Any]:
+    for attr in ("inputSchema", "input_schema"):
+        value = getattr(tool, attr, None)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
 def _props(tool: Any) -> Dict[str, Any]:
-    schema = getattr(tool, "inputSchema", None) or {}
-    props = schema.get("properties") if isinstance(schema, dict) else None
+    props = _schema(tool).get("properties")
     return props if isinstance(props, dict) else {}
 
 
@@ -24,7 +33,14 @@ def _type_label(prop: Any) -> str:
         return str(t)
     any_of = prop.get("anyOf")
     if isinstance(any_of, list):
-        return "|".join(str(s.get("type", "any")) for s in any_of if isinstance(s, dict)) or "any"
+        return (
+            "|".join(
+                str(s.get("type", "any"))
+                for s in any_of
+                if isinstance(s, dict)
+            )
+            or "any"
+        )
     return "any"
 
 
@@ -72,23 +88,35 @@ def is_always_visible(tool: Any, names: Iterable[str]) -> bool:
 def serialize_tool(tool: Any, detail: DetailLevel) -> Dict[str, Any]:
     name = getattr(tool, "name", "")
     description = getattr(tool, "description", None) or ""
+
     if detail == "brief":
         return {"name": name, "summary": first_sentence(description)}
-    if detail == "full":
-        return tool.model_dump(by_alias=True, exclude_none=True, mode="json")
 
-    schema = getattr(tool, "inputSchema", None) or {}
-    required = set(schema.get("required", [])) if isinstance(schema, dict) else set()
+    if detail == "full":
+        return tool.model_dump(
+            by_alias=True,
+            exclude_none=True,
+            mode="json",
+        )
+
+    schema = _schema(tool)
+    required = set(schema.get("required", []))
+
     out: Dict[str, Any] = {"name": name, "description": description}
     title = getattr(tool, "title", None)
     if title:
         out["title"] = title
+
     out["parameters"] = [
         {
             "name": pname,
             "type": _type_label(prop),
             "required": pname in required,
-            "description": prop.get("description", "") if isinstance(prop, dict) else "",
+            "description": (
+                prop.get("description", "")
+                if isinstance(prop, dict)
+                else ""
+            ),
         }
         for pname, prop in _props(tool).items()
     ]
