@@ -812,7 +812,7 @@ class McpApplication:
         )
 
         async def health_status_resource(context: ExecutionContext) -> str:
-            results = HealthCheckRegistry.run_all()
+            results = await HealthCheckRegistry.run_all()
             return json.dumps(results)
 
         self._resources[config.uri] = _ResourceEntry(config=config, instance=None, method=health_status_resource)
