@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from nitrostack import ExecutionContext, injectable, module, tool
 from nitrostack.testing import NitroTestingModule
 from nitrostack.transforms.search import RegexSearchTransform
-
+from nitrostack import use_guards
 
 class In(BaseModel):
     q: str = ""
@@ -71,11 +71,3 @@ def test_call_tool_cannot_call_itself():
 
     result = run(go())
     assert "cannot be called" in str(result)
-
-
-
-# GUARD TEST (ADAPT). Reuse the guard pattern from your #61 guard test:
-#   - a real tool "admin_only" protected by the SDK's guard decorator
-#   - call it via call_tool as a caller WITHOUT permission -> must raise
-#   - with permission -> must succeed
-# Not written here because the guard API isn't visible to me. Without it, "denied" is untested.
