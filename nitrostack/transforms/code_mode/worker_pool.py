@@ -137,7 +137,9 @@ class WorkerPool(SandboxProtocol):
             while True:
                 # Poll connection in executor with remaining timeout
                 elapsed = time.perf_counter() - start_time
-                remaining = max(0.01, timeout_seconds - elapsed)
+                remaining = timeout_seconds - elapsed
+                if remaining <= 0:
+                    raise asyncio.TimeoutError()
 
                 def check_poll(conn: Connection, timeout: float) -> bool:
                     return conn.poll(timeout)
@@ -163,18 +165,28 @@ class WorkerPool(SandboxProtocol):
                         args = {}
 
                     try:
-                        if hasattr(tools_api, "call"):
-                            call_fn = getattr(tools_api, "call")
-                            res = call_fn(tool_name, args)
-                            val = await res if inspect.isawaitable(res) else res
-                        elif callable(tools_api):
-                            res = tools_api(tool_name, args)
-                            val = await res if inspect.isawaitable(res) else res
-                        else:
-                            raise RuntimeError("Tools API is not callable.")
+                        elapsed = time.perf_counter() - start_time
+                        remaining_tool_time = timeout_seconds - elapsed
+                        if remaining_tool_time <= 0:
+                            raise asyncio.TimeoutError()
+
+                        async def _invoke_tool() -> Any:
+                            if hasattr(tools_api, "call"):
+                                call_fn = getattr(tools_api, "call")
+                                res = call_fn(tool_name, args)
+                                return await res if inspect.isawaitable(res) else res
+                            elif callable(tools_api):
+                                res = tools_api(tool_name, args)
+                                return await res if inspect.isawaitable(res) else res
+                            else:
+                                raise RuntimeError("Tools API is not callable.")
+
+                        val = await asyncio.wait_for(_invoke_tool(), timeout=remaining_tool_time)
 
                         if slot.conn is not None:
                             slot.conn.send({"status": "ok", "value": val})
+                    except asyncio.TimeoutError:
+                        raise
                     except Exception as exc:
                         if slot.conn is not None:
                             slot.conn.send({

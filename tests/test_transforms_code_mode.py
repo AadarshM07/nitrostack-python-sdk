@@ -1,6 +1,5 @@
 import asyncio
 import os
-import sys
 import pytest
 from pydantic import BaseModel
 
@@ -382,4 +381,24 @@ def test_worker_pool_disposed_raises_runtime_error():
 
     with pytest.raises(RuntimeError, match="disposed"):
         run(pool.run("1 + 1", None, limits))
+
+
+@requires_quickjs
+def test_timeout_applied_while_tool_call_in_progress():
+    """Script timeout is enforced while a slow tool call is in progress."""
+    async def slow_tool(name, args):
+        await asyncio.sleep(0.6)
+        return "done"
+
+    limits = CodeModeLimits(timeout_ms=50, worker_pool_size=1)
+    pool = WorkerPool(limits)
+    try:
+        res = run(pool.run("tools.call('slow', {})", slow_tool, limits))
+        assert res.success is False
+        assert res.error is not None
+        assert "TimeoutError" in res.error or "timed out" in res.error
+        # The script duration should be around 50ms, not 600ms+
+        assert res.duration_ms < 250
+    finally:
+        run(pool.dispose())
 
